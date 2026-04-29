@@ -1,0 +1,11 @@
+# Local task planning notes
+tasks/
+
+# macOS Finder metadata
+.DS_Store
+
+# Python cache files
+__pycache__/
+
+# Python virtual environments
+.venv/

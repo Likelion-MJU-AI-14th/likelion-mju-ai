@@ -1,6 +1,12 @@
 import random
 import time
 
+def show_status(name: str, weight: int, hp: int, hunger: int) -> None:
+    print(f"이름: {name}")
+    print(f"몸무게: {weight}")
+    print(f"체력: {hp}")
+    print(f"배고픔: {hunger}")
+    
 def create_character():
     print("=== 무인도 생존 시뮬레이션 ===")
 
@@ -16,6 +22,8 @@ def create_character():
     hp = 80
     hunger = 86.7
     print(f"초기 상태 → 체력: {hp}, 배고픔: {hunger}")
+    
+    show_status(name=name, weight=weight, hp=hp, hunger=hunger)
 
 create_character()
 

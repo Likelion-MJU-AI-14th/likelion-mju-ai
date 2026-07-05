@@ -171,6 +171,53 @@ def main():
     # 1. "instruction-data.json" 파일을 로드하기
     # 2. 데이터셋을 train/valid/test 세트로 분리하기
     # 3. 각 세트에 대해 데이터로더 생성하기
+
+    file_path = "instrction-data.json"
+    url = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch07/01_main-chapter-code/instruction-data.json"
+
+    data = download_and_load_file(file_path, url)
+
+    train_portion = int(len(data) * 0.85)
+    test_portion = int(len(data) * 0.10)
+    val_portion = len(data) - train_portion - test_portion
+
+    train_data = data[:train_portion]
+    test_data = data[train_portion:train_portion + test_portion]
+    val_data = data[train_portion + test_portion:]
+
+    train_dataset = InstructionDataset(train_data, tokenizer)
+    val_dataset = InstructionDataset(val_data, tokenizer)
+    test_dataset = InstructionDataset(test_data, tokenizer)
+
+    customized_collate_fn = partial(
+        custom_collate_fn,
+        device=device,
+        allowed_max_length=1024
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=8,
+        collate_fn=customized_collate_fn,
+        shuffle=True,
+        drop_last=True
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=8,
+        collate_fn=customized_collate_fn,
+        shuffle=False,
+        drop_last=False
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=8,
+        collate_fn=customized_collate_fn,
+        shuffle=False,
+        drop_last=False
+    )
     
     
     #######################################
@@ -181,22 +228,32 @@ def main():
     # 2. 모델을 평가 모드로 전환 후 'cuda' 디바이스로 이동
     
     BASE_CONFIG = {
-		"vocab_size": 50257,     # Vocabulary size
-		"context_length": 1024,  # Context length
-		"drop_rate": 0.0,        # Dropout rate
-		"qkv_bias": True         # Query-key-value bias
-	}
+        "vocab_size": 50257,     # Vocabulary size
+        "context_length": 1024,  # Context length
+        "drop_rate": 0.0,        # Dropout rate
+        "qkv_bias": True         # Query-key-value bias
+    }
     
     model_configs = {
-		"gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
-		"gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
-		"gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
-		"gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
-	}
+        "gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
+        "gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
+        "gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
+        "gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
+    }
     
     CHOOSE_MODEL = "gpt2-medium (355M)"
     BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
+    model = GPTModel(BASE_CONFIG)
+
+    settings, params = download_and_load_gpt2(
+        model_size="355M",
+        models_dir="gpt2"
+    )
+
+    load_weights_into_gpt(model, params)
+    model.to(device)
+    model.eval()
 
     #######################################
     # Finetuning the model
@@ -209,6 +266,36 @@ def main():
     # file_name = f"{re.sub(r'[ ()]', '', CHOOSE_MODEL) }-sft-standalone.pth"
     # torch.save(model.state_dict(), file_name)
     # print(f"Model saved as {file_name}")
+    start_time = time.time()
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=5e-5,
+        weight_decay=0.1
+    )
+
+    num_epochs = 2
+
+    train_losses, val_losses, tokens_seen = train_model_simple(
+        model,
+        train_loader,
+        val_loader,
+        optimizer,
+        device,
+        num_epochs=num_epochs,
+        eval_freq=5,
+        eval_iter=5,
+        start_context=format_input(val_data[0]),
+        tokenizer=tokenizer
+    )
+
+    end_time = time.time()
+    print(f"Training completed in {(end_time - start_time) / 60:.2f} minutes.")
+
+    file_name = f"{re.sub(r'[ ()]', '', CHOOSE_MODEL)}-sft-standalone.pth"
+    torch.save(model.state_dict(), file_name)
+    print(f"Model saved as {file_name}")
+    
 
 
 if __name__ == "__main__":

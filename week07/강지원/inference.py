@@ -64,25 +64,35 @@ def main():
 	model.load_state_dict(torch.load(file_name, weights_only=True))
 	model.eval()
 	model.to(device)
- 
-	entry =  {
-		"instruction": "Why is director Hong Myung-bo criticized?",
-		"input": "",
-	}
-	input_text = format_input(entry)
-	token_ids = generate(
-		model=model,
-		idx=text_to_token_ids(input_text, tokenizer).to(device),
-		max_new_tokens=256,
-		context_size=BASE_CONFIG["context_length"],
-		eos_id=50256
-	)
- 
-	generated_text = token_ids_to_text(token_ids, tokenizer)
-	response_text = generated_text[len(input_text):].replace("### Response:", "").strip()
-	
-	print("Response:", response_text)
- 
+
+	entries = [
+		{
+			"instruction": "Did South Korea advance to the Round of 32 of the 2026 World Cup?",
+			"input": "",
+		},
+		{
+			"instruction": "Why is director Hong Myung-bo criticized?",
+			"input": "",
+		},
+	]
+
+	for entry in entries:
+		input_text = format_input(entry)
+		token_ids = generate(
+			model=model,
+			idx=text_to_token_ids(input_text, tokenizer).to(device),
+			max_new_tokens=256,
+			context_size=BASE_CONFIG["context_length"],
+			eos_id=50256
+		)
+
+		generated_text = token_ids_to_text(token_ids, tokenizer)
+		response_text = generated_text[len(input_text):].replace("### Response:", "").strip()
+
+		print("Instruction:", entry["instruction"])
+		print("Response:", response_text)
+		print(50 * "-")
+
 
 if __name__ == "__main__":
     main()

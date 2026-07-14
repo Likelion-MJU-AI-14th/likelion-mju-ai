@@ -66,7 +66,7 @@ def main():
 	model.to(device)
  
 	entry =  {
-		"instruction": "Why is director Hong Myung-bo criticized?",
+		"instruction": "Predict the result of South Korea in the 2026 FIFA World Cup and explain the reasons.",
 		"input": "",
 	}
 	input_text = format_input(entry)

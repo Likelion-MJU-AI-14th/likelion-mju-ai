@@ -65,8 +65,8 @@ def main():
 	model.eval()
 	model.to(device)
  
-	entry =  {
-		"instruction": "Why is director Hong Myung-bo criticized?",
+	entry = {
+		"instruction": "Why did South Korea fail to qualify for the Round of 32 in the 2026 FIFA World Cup?",
 		"input": "",
 	}
 	input_text = format_input(entry)
@@ -81,6 +81,7 @@ def main():
 	generated_text = token_ids_to_text(token_ids, tokenizer)
 	response_text = generated_text[len(input_text):].replace("### Response:", "").strip()
 	
+	print("Question:", entry["instruction"])
 	print("Response:", response_text)
  
 

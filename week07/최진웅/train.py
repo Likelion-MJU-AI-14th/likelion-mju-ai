@@ -167,19 +167,61 @@ def main():
     #######################################
     # Download and prepare dataset
     #######################################
-    # TODO:
-    # 1. "instruction-data.json" 파일을 로드하기
-    # 2. 데이터셋을 train/valid/test 세트로 분리하기
-    # 3. 각 세트에 대해 데이터로더 생성하기
-    
+    data_path = os.path.join(os.path.dirname(__file__), "instruction-data.json")
+    with open(data_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    train_portion = int(len(data) * 0.85)
+    val_portion = int(len(data) * 0.1)
+    train_data = data[:train_portion]
+    val_data = data[train_portion:train_portion + val_portion]
+    test_data = data[train_portion + val_portion:]
+
+    train_dataset = InstructionDataset(train_data, tokenizer)
+    val_dataset = InstructionDataset(val_data, tokenizer)
+    test_dataset = InstructionDataset(test_data, tokenizer)
+
+    customized_collate_fn = partial(
+        custom_collate_fn,
+        device=device,
+        allowed_max_length=1024,
+    )
+    num_workers = 0
+    batch_size = 8
+
+    torch.manual_seed(123)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        collate_fn=customized_collate_fn,
+        shuffle=True,
+        drop_last=True,
+        num_workers=num_workers,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        collate_fn=customized_collate_fn,
+        shuffle=False,
+        drop_last=False,
+        num_workers=num_workers,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        collate_fn=customized_collate_fn,
+        shuffle=False,
+        drop_last=False,
+        num_workers=num_workers,
+    )
+
+    print(f"Training set size: {len(train_data)}")
+    print(f"Validation set size: {len(val_data)}")
+    print(f"Test set size: {len(test_data)}")
     
     #######################################
     # Load pretrained model
     #######################################
-    # TODO:
-    # 1. 사전 학습된 "gpt2-medium (355M)" 모델 불러오기
-    # 2. 모델을 평가 모드로 전환 후 'cuda' 디바이스로 이동
-    
     BASE_CONFIG = {
 		"vocab_size": 50257,     # Vocabulary size
 		"context_length": 1024,  # Context length
@@ -197,18 +239,45 @@ def main():
     CHOOSE_MODEL = "gpt2-medium (355M)"
     BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
+    settings, params = download_and_load_gpt2(
+        model_size="355M",
+        models_dir=os.path.join(os.path.dirname(__file__), "gpt2"),
+    )
+    model = GPTModel(BASE_CONFIG)
+    load_weights_into_gpt(model, params)
+    model.eval()
+    model.to(device)
+
 
     #######################################
     # Finetuning the model
     #######################################
-    # TODO:
-    # 1. train_model_simple() 함수를 이용해서 모델을 미세 튜닝하기 (epoch는 2회)
-    # 2. 미세 튜닝한 모델을 저장하기
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.00005, weight_decay=0.1)
+    torch.manual_seed(123)
 
+    start_time = time.time()
+    train_losses, val_losses, tokens_seen = train_model_simple(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        device=device,
+        num_epochs=2,
+        eval_freq=5,
+        eval_iter=5,
+        start_context=format_input(val_data[0]),
+        tokenizer=tokenizer,
+    )
+    end_time = time.time()
+    execution_time_minutes = (end_time - start_time) / 60
+    print(f"Training completed in {execution_time_minutes:.2f} minutes.")
 
-    # file_name = f"{re.sub(r'[ ()]', '', CHOOSE_MODEL) }-sft-standalone.pth"
-    # torch.save(model.state_dict(), file_name)
-    # print(f"Model saved as {file_name}")
+    epochs_tensor = torch.linspace(0, 2, len(train_losses))
+    plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
+
+    file_name = f"{re.sub(r'[ ()]', '', CHOOSE_MODEL)}-sft-standalone.pth"
+    torch.save(model.state_dict(), file_name)
+    print(f"Model saved as {file_name}")
 
 
 if __name__ == "__main__":

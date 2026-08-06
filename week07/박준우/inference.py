@@ -65,23 +65,35 @@ def main():
 	model.eval()
 	model.to(device)
  
-	entry =  {
-		"instruction": "Why is director Hong Myung-bo criticized?",
-		"input": "",
-	}
-	input_text = format_input(entry)
-	token_ids = generate(
-		model=model,
-		idx=text_to_token_ids(input_text, tokenizer).to(device),
-		max_new_tokens=256,
-		context_size=BASE_CONFIG["context_length"],
-		eos_id=50256
-	)
- 
-	generated_text = token_ids_to_text(token_ids, tokenizer)
-	response_text = generated_text[len(input_text):].replace("### Response:", "").strip()
-	
-	print("Response:", response_text)
+	questions = [
+		{
+			"instruction": "Why is director Hong Myung-bo criticized?",
+			"input": "",
+		},
+		{
+			"instruction": "Who did South Korea play against in the 2026 World Cup Round of 32?",
+			"input": "",
+		},
+		{
+			"instruction": "What was the result of the 2026 World Cup match between South Korea and their Round of 32 opponent?",
+			"input": "",
+		},
+	]
+
+	for entry in questions:
+		input_text = format_input(entry)
+		token_ids = generate(
+			model=model,
+			idx=text_to_token_ids(input_text, tokenizer).to(device),
+			max_new_tokens=256,
+			context_size=BASE_CONFIG["context_length"],
+			eos_id=50256
+		)
+		generated_text = token_ids_to_text(token_ids, tokenizer)
+		response_text = generated_text[len(input_text):].replace("### Response:", "").strip()
+		print(f"\nQ: {entry['instruction']}")
+		print(f"A: {response_text}")
+		print("-" * 60)
  
 
 if __name__ == "__main__":
